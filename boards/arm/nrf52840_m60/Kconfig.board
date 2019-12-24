@@ -1,0 +1,8 @@
+# nRF52840-M60 board configuration
+
+# Copyright (c) 2018 makerdiary.com
+# SPDX-License-Identifier: Apache-2.0
+
+config BOARD_NRF52840_M60
+	bool "NRF52840-M60"
+	depends on SOC_NRF52840_QIAA
