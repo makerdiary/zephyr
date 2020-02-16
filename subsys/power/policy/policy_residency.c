@@ -29,6 +29,20 @@ static const unsigned int pm_min_residency[] = {
 	CONFIG_SYS_PM_MIN_RESIDENCY_SLEEP_3 * SECS_TO_TICKS / MSEC_PER_SEC,
 #endif
 #endif /* CONFIG_SYS_POWER_SLEEP_STATES */
+
+#ifdef CONFIG_SYS_POWER_DEEP_SLEEP_STATES
+#ifdef CONFIG_HAS_SYS_POWER_STATE_DEEP_SLEEP_1
+	CONFIG_SYS_PM_MIN_RESIDENCY_DEEP_SLEEP_1 * SECS_TO_TICKS / MSEC_PER_SEC,
+#endif
+
+#ifdef CONFIG_HAS_SYS_POWER_STATE_DEEP_SLEEP_2
+	CONFIG_SYS_PM_MIN_RESIDENCY_DEEP_SLEEP_2 * SECS_TO_TICKS / MSEC_PER_SEC,
+#endif
+
+#ifdef CONFIG_HAS_SYS_POWER_STATE_DEEP_SLEEP_3
+	CONFIG_SYS_PM_MIN_RESIDENCY_DEEP_SLEEP_3 * SECS_TO_TICKS / MSEC_PER_SEC,
+#endif
+#endif /* CONFIG_SYS_POWER_DEEP_SLEEP_STATES */
 };
 
 enum power_states sys_pm_policy_next_state(s32_t ticks)
@@ -57,4 +71,9 @@ enum power_states sys_pm_policy_next_state(s32_t ticks)
 
 	LOG_DBG("No suitable power state found!");
 	return SYS_POWER_STATE_ACTIVE;
+}
+
+__weak bool sys_pm_policy_low_power_devices(enum power_states pm_state)
+{
+	return sys_pm_is_sleep_state(pm_state);
 }

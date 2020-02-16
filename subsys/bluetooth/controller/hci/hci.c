@@ -787,9 +787,7 @@ static void le_read_local_features(struct net_buf *buf, struct net_buf **evt)
 	rp->status = 0x00;
 
 	(void)memset(&rp->features[0], 0x00, sizeof(rp->features));
-	rp->features[0] = LL_FEAT & 0xFF;
-	rp->features[1] = (LL_FEAT >> 8)  & 0xFF;
-	rp->features[2] = (LL_FEAT >> 16)  & 0xFF;
+	sys_put_le24(LL_FEAT, rp->features);
 }
 
 static void le_set_random_address(struct net_buf *buf, struct net_buf **evt)
@@ -870,7 +868,7 @@ static void le_rand(struct net_buf *buf, struct net_buf **evt)
 	rp = hci_cmd_complete(evt, sizeof(*rp));
 	rp->status = 0x00;
 
-	bt_rand(rp->rand, count);
+	util_rand(rp->rand, count);
 }
 
 static void le_read_supp_states(struct net_buf *buf, struct net_buf **evt)
@@ -940,6 +938,20 @@ static void le_set_adv_param(struct net_buf *buf, struct net_buf **evt)
 	u8_t status;
 
 	min_interval = sys_le16_to_cpu(cmd->min_interval);
+
+	if (IS_ENABLED(CONFIG_BT_CTLR_PARAM_CHECK) &&
+	    (cmd->type != BT_LE_ADV_DIRECT_IND)) {
+		u16_t max_interval = sys_le16_to_cpu(cmd->max_interval);
+
+		if ((min_interval > max_interval) ||
+		    (min_interval < 0x0020) ||
+		    (max_interval > 0x4000)) {
+			ccst = hci_cmd_complete(evt, sizeof(*ccst));
+			ccst->status = BT_HCI_ERR_INVALID_PARAM;
+
+			return;
+		}
+	}
 
 #if defined(CONFIG_BT_CTLR_ADV_EXT)
 	status = ll_adv_params_set(0, 0, min_interval, cmd->type,
@@ -1329,8 +1341,8 @@ static void le_read_max_data_len(struct net_buf *buf, struct net_buf **evt)
 
 	rp->max_tx_octets = sys_cpu_to_le16(max_tx_octets);
 	rp->max_tx_time = sys_cpu_to_le16(max_tx_time);
-	rp->max_tx_octets = sys_cpu_to_le16(max_tx_octets);
-	rp->max_tx_time = sys_cpu_to_le16(max_tx_time);
+	rp->max_rx_octets = sys_cpu_to_le16(max_rx_octets);
+	rp->max_rx_time = sys_cpu_to_le16(max_rx_time);
 	rp->status = 0x00;
 }
 #endif /* CONFIG_BT_CTLR_DATA_LENGTH */

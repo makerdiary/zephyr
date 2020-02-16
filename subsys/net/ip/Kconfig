@@ -49,7 +49,6 @@ module-help = Enables offload layer to output debug messages.
 source "subsys/net/Kconfig.template.log_config.net"
 endif # NET_OFFLOAD
 
-# Hidden option
 config NET_RAW_MODE
 	bool
 	help
@@ -643,6 +642,9 @@ config NET_DEFAULT_IF_CANBUS_RAW
 	bool "Socket CAN interface"
 	depends on NET_L2_CANBUS_RAW
 
+config NET_DEFAULT_IF_PPP
+	bool "PPP interface"
+	depends on NET_L2_PPP
 
 endchoice
 

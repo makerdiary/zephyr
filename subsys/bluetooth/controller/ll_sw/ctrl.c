@@ -6489,7 +6489,7 @@ again:
 	LL_ASSERT(retry);
 	retry--;
 
-	bt_rand(&access_addr, sizeof(u32_t));
+	util_rand(&access_addr, sizeof(u32_t));
 
 	bit_idx = 31U;
 	transitions = 0U;
@@ -6603,7 +6603,7 @@ again:
 	 * It shall not be a sequence that differs from the advertising channel
 	 * packets Access Address by only one bit.
 	 */
-	adv_aa_check = access_addr ^ 0x8e89bed6;
+	adv_aa_check = access_addr ^ PDU_AC_ACCESS_ADDR;
 	if (util_ones_count_get((u8_t *)&adv_aa_check,
 				sizeof(adv_aa_check)) <= 1) {
 		goto again;
@@ -6719,7 +6719,7 @@ static void event_adv(u32_t ticks_at_expire, u32_t remainder,
 		      u16_t lazy, void *context)
 {
 	u32_t remainder_us;
-	u32_t aa = 0x8e89bed6;
+	u32_t aa = PDU_AC_ACCESS_ADDR;
 
 	ARG_UNUSED(remainder);
 	ARG_UNUSED(lazy);
@@ -7151,7 +7151,7 @@ static void event_scan(u32_t ticks_at_expire, u32_t remainder, u16_t lazy,
 {
 	u32_t remainder_us;
 	u32_t ret;
-	u32_t aa = 0x8e89bed6;
+	u32_t aa = PDU_AC_ACCESS_ADDR;
 
 	ARG_UNUSED(remainder);
 	ARG_UNUSED(lazy);
@@ -7915,12 +7915,8 @@ static inline void event_fex_prep(struct connection *conn)
 		pdu_ctrl_rx->llctrl.opcode = PDU_DATA_LLCTRL_TYPE_FEATURE_RSP;
 		(void)memset(&pdu_ctrl_rx->llctrl.feature_rsp.features[0], 0x00,
 			     sizeof(pdu_ctrl_rx->llctrl.feature_rsp.features));
-		pdu_ctrl_rx->llctrl.feature_req.features[0] =
-			conn->llcp_feature.features & 0xFF;
-		pdu_ctrl_rx->llctrl.feature_req.features[1] =
-			(conn->llcp_feature.features >> 8) & 0xFF;
-		pdu_ctrl_rx->llctrl.feature_req.features[2] =
-			(conn->llcp_feature.features >> 16) & 0xFF;
+		sys_put_le24(conn->llcp_feature.features,
+			     pdu_ctrl_rx->llctrl.feature_req.features);
 
 		/* enqueue feature rsp structure into rx queue */
 		packet_rx_enqueue();
@@ -7950,12 +7946,8 @@ static inline void event_fex_prep(struct connection *conn)
 		(void)memset(&pdu_ctrl_tx->llctrl.feature_req.features[0],
 			     0x00,
 			     sizeof(pdu_ctrl_tx->llctrl.feature_req.features));
-		pdu_ctrl_tx->llctrl.feature_req.features[0] =
-			conn->llcp_feature.features & 0xFF;
-		pdu_ctrl_tx->llctrl.feature_req.features[1] =
-			(conn->llcp_feature.features >> 8) & 0xFF;
-		pdu_ctrl_tx->llctrl.feature_req.features[2] =
-			(conn->llcp_feature.features >> 16) & 0xFF;
+		sys_put_le24(conn->llcp_feature.features,
+			     pdu_ctrl_tx->llctrl.feature_req.features);
 
 		ctrl_tx_enqueue(conn, node_tx);
 
@@ -8405,8 +8397,13 @@ static inline int event_len_prep(struct connection *conn)
 		   ) {
 			lr->max_rx_time =
 				RADIO_PKT_TIME(LL_LENGTH_OCTETS_RX_MAX, 0);
+#if defined(CONFIG_BT_CTLR_PHY)
+			lr->max_tx_time = conn->default_tx_time;
+#else /* !CONFIG_BT_CTLR_PHY */
 			lr->max_tx_time =
 				RADIO_PKT_TIME(conn->default_tx_octets, 0);
+#endif /* !CONFIG_BT_CTLR_PHY */
+
 #if defined(CONFIG_BT_CTLR_PHY)
 #if defined(CONFIG_BT_CTLR_PHY_CODED)
 		} else if (conn->llcp_feature.features &
@@ -10846,12 +10843,8 @@ static u8_t feature_rsp_send(struct connection *conn,
 	pdu_ctrl_tx->llctrl.opcode = PDU_DATA_LLCTRL_TYPE_FEATURE_RSP;
 	(void)memset(&pdu_ctrl_tx->llctrl.feature_rsp.features[0], 0x00,
 		     sizeof(pdu_ctrl_tx->llctrl.feature_rsp.features));
-	pdu_ctrl_tx->llctrl.feature_req.features[0] =
-		conn->llcp_feature.features & 0xFF;
-	pdu_ctrl_tx->llctrl.feature_req.features[1] =
-		(conn->llcp_feature.features >> 8) & 0xFF;
-	pdu_ctrl_tx->llctrl.feature_req.features[2] =
-		(conn->llcp_feature.features >> 16) & 0xFF;
+	sys_put_le24(conn->llcp_feature.features,
+		     pdu_ctrl_tx->llctrl.feature_req.features);
 
 	ctrl_tx_sec_enqueue(conn, node_tx);
 
@@ -11999,7 +11992,7 @@ u32_t radio_connect_enable(u8_t adv_addr_type, u8_t *adv_addr, u16_t interval,
 	conn->llcp_feature.features = LL_FEAT;
 	access_addr = access_addr_get();
 	memcpy(&conn->access_addr[0], &access_addr, sizeof(conn->access_addr));
-	bt_rand(&conn->crc_init[0], 3);
+	util_rand(&conn->crc_init[0], 3);
 	memcpy(&conn->data_chan_map[0], &_radio.data_chan_map[0],
 	       sizeof(conn->data_chan_map));
 	conn->data_chan_count = _radio.data_chan_count;
@@ -12340,8 +12333,8 @@ u8_t ll_enc_req_send(u16_t handle, u8_t *rand, u8_t *ediv, u8_t *ltk)
 			memcpy(enc_req->rand, rand, sizeof(enc_req->rand));
 			enc_req->ediv[0] = ediv[0];
 			enc_req->ediv[1] = ediv[1];
-			bt_rand(enc_req->skdm, sizeof(enc_req->skdm));
-			bt_rand(enc_req->ivm, sizeof(enc_req->ivm));
+			util_rand(enc_req->skdm, sizeof(enc_req->skdm));
+			util_rand(enc_req->ivm, sizeof(enc_req->ivm));
 		} else if (conn->enc_rx && conn->enc_tx) {
 			memcpy(&conn->llcp_enc.rand[0], rand,
 			       sizeof(conn->llcp_enc.rand));

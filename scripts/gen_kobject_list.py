@@ -19,7 +19,7 @@ validate accesses to kernel objects to make the following assertions:
 
     - The calling thread has sufficient permissions on the object
 
-For more details see the "Kernel Objects" section in the documentation.
+For more details see the :ref:`kernelobjects` section in the documentation.
 
 The zephyr build generates an intermediate ELF binary, zephyr_prebuilt.elf,
 which this script scans looking for kernel objects by examining the DWARF
@@ -234,6 +234,7 @@ def write_gperf_table(fp, eh, objs, static_begin, static_end):
 
     # Generate the array of already mapped thread indexes
     fp.write('\n')
+    fp.write('Z_GENERIC_SECTION(.kobject_data.data) ')
     fp.write('u8_t _thread_idx_map[%d] = {' % (thread_max_bytes))
 
     for i in range(0, thread_max_bytes):

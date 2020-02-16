@@ -31,7 +31,7 @@
 #include <kswap.h>
 #include <drivers/entropy.h>
 #include <logging/log_ctrl.h>
-#include <debug/tracing.h>
+#include <tracing/tracing.h>
 #include <stdbool.h>
 #include <debug/gcov.h>
 
@@ -212,6 +212,8 @@ void z_data_copy(void)
 
 /* LCOV_EXCL_STOP */
 
+bool z_sys_post_kernel;
+
 /**
  *
  * @brief Mainline for kernel's background thread
@@ -232,6 +234,8 @@ static void bg_thread_main(void *unused1, void *unused2, void *unused3)
 #else
 	static const unsigned int boot_delay;
 #endif
+
+	z_sys_post_kernel = true;
 
 	z_sys_device_do_config_level(_SYS_INIT_LEVEL_POST_KERNEL);
 #if CONFIG_STACK_POINTER_RANDOM
@@ -281,8 +285,10 @@ static void bg_thread_main(void *unused1, void *unused2, void *unused3)
 	/* Mark nonessenrial since main() has no more work to do */
 	z_main_thread.base.user_options &= ~K_ESSENTIAL;
 
+#ifdef CONFIG_COVERAGE_DUMP
 	/* Dump coverage data once the main() has exited. */
 	gcov_coverage_dump();
+#endif
 } /* LCOV_EXCL_LINE ... because we just dumped final coverage data */
 
 /* LCOV_EXCL_START */
@@ -366,14 +372,11 @@ static void prepare_multithreading(struct k_thread *dummy_thread)
 			   CONFIG_MAIN_STACK_SIZE, bg_thread_main,
 			   NULL, NULL, NULL,
 			   CONFIG_MAIN_THREAD_PRIORITY, K_ESSENTIAL, "main");
-	sys_trace_thread_create(&z_main_thread);
-
 	z_mark_thread_as_started(&z_main_thread);
 	z_ready_thread(&z_main_thread);
 
 	init_idle_thread(&z_idle_thread, z_idle_stack);
 	_kernel.cpus[0].idle_thread = &z_idle_thread;
-	sys_trace_thread_create(&z_idle_thread);
 
 #if defined(CONFIG_SMP) && CONFIG_MP_NUM_CPUS > 1
 	init_idle_thread(_idle_thread1, _idle_stack1);
@@ -509,7 +512,7 @@ FUNC_NORETURN void z_cstart(void)
 # endif
 	};
 
-	_current = &dummy_thread;
+	_current_cpu->current = &dummy_thread;
 #endif
 
 #ifdef CONFIG_USERSPACE
